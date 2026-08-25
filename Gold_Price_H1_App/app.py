@@ -60,6 +60,31 @@ PREDICTORS = [
     "US10Y_Real_Yield_Change_Lag1",
 ]
 
+MANUAL_PREDICTORS = [
+    "Current_Price",
+    "Current_Open",
+    "Current_High",
+    "Current_Low",
+    "Current_Volume",
+    "Price_Lag1",
+    "Price_Lag2",
+]
+
+CALCULATED_PREDICTORS = [
+    "Current_CHG",
+    "MA_7",
+    "MA_30",
+    "Volatility_7",
+    "Volatility_30",
+    "Momentum_7",
+    "Momentum_30",
+]
+
+EXTERNAL_PREDICTORS = [
+    "USD_Index_Return_Lag1",
+    "US10Y_Real_Yield_Change_Lag1",
+]
+
 TARGET_FIELDS = {"Target_Next_Return", "Target_Next_Price", "Target_Date", "Split"}
 
 INPUT_GROUPS = {
@@ -431,21 +456,104 @@ def render_prediction_results(
     st.plotly_chart(apply_plot_style(return_fig), width="stretch", config={"displaylogo": False})
 
 
+def build_model_input_from_seven(
+    canonical: pd.DataFrame,
+    manual_values: dict[str, float],
+) -> pd.DataFrame:
+    """Construct the frozen 16-feature model row from seven user-entered fields."""
+    values = {name: float(manual_values[name]) for name in MANUAL_PREDICTORS}
+
+    positive_fields = [
+        "Current_Price", "Current_Open", "Current_High", "Current_Low",
+        "Price_Lag1", "Price_Lag2",
+    ]
+    if any(values[name] <= 0 for name in positive_fields):
+        raise ValueError("Price, Open, High, Low and both lag prices must be greater than zero.")
+    if values["Current_Volume"] < 0:
+        raise ValueError("Current Volume cannot be negative.")
+    if values["Current_High"] < max(
+        values["Current_Open"], values["Current_Low"], values["Current_Price"]
+    ):
+        raise ValueError("Current High cannot be below Open, Low or Current Price.")
+    if values["Current_Low"] > min(
+        values["Current_Open"], values["Current_High"], values["Current_Price"]
+    ):
+        raise ValueError("Current Low cannot be above Open, High or Current Price.")
+
+    stored_prices = pd.to_numeric(canonical["Current_Price"], errors="raise").astype(float)
+    if len(stored_prices) < 30:
+        raise ValueError("At least 30 stored historical prices are required.")
+
+    # The seven-field interface represents one new current observation after the
+    # bundled history. Older observations come from the frozen dataset, while the
+    # two most recent lags and current price come from the user.
+    older_prices = stored_prices.iloc[-30:-2].to_numpy(dtype=float)
+    price_path = np.concatenate([
+        older_prices,
+        np.array([
+            values["Price_Lag2"],
+            values["Price_Lag1"],
+            values["Current_Price"],
+        ], dtype=float),
+    ])
+    if price_path.size != 31 or not np.isfinite(price_path).all():
+        raise ValueError("Unable to construct the required 31-observation price history.")
+
+    returns = pd.Series(price_path, dtype=float).pct_change().dropna()
+    row: dict[str, float] = dict(values)
+    row["Current_CHG"] = float(price_path[-1] / price_path[-2] - 1.0)
+    row["MA_7"] = float(np.mean(price_path[-7:]))
+    row["MA_30"] = float(np.mean(price_path[-30:]))
+    row["Volatility_7"] = float(returns.iloc[-7:].std(ddof=1))
+    row["Volatility_30"] = float(returns.iloc[-30:].std(ddof=1))
+    row["Momentum_7"] = float(price_path[-1] / price_path[-8] - 1.0)
+    row["Momentum_30"] = float(price_path[-1] / price_path[-31] - 1.0)
+
+    # These are the latest external lag values bundled with the frozen dataset.
+    # They are not live market values and are disclosed as such in the interface.
+    latest_stored = canonical.iloc[-1]
+    for name in EXTERNAL_PREDICTORS:
+        row[name] = float(latest_stored[name])
+
+    frame = pd.DataFrame([[row[name] for name in PREDICTORS]], columns=PREDICTORS)
+    return ensure_finite_predictor_frame(frame)
+
+
 def render_manual_input(bundle: dict[str, Any]) -> None:
-    latest_row = bundle["canonical"].iloc[-1]
-    latest_values = latest_row[PREDICTORS].astype(float)
+    canonical = bundle["canonical"]
+    latest_row = canonical.iloc[-1]
+    previous_row = canonical.iloc[-2]
     latest_origin_date = pd.to_datetime(latest_row["Origin_Date"]).date()
+
+    # Defaults represent a convenient editable starting point for a new record.
+    defaults = {
+        "Current_Price": float(latest_row["Current_Price"]),
+        "Current_Open": float(latest_row["Current_Open"]),
+        "Current_High": float(latest_row["Current_High"]),
+        "Current_Low": float(latest_row["Current_Low"]),
+        "Current_Volume": float(latest_row["Current_Volume"]),
+        "Price_Lag1": float(latest_row["Current_Price"]),
+        "Price_Lag2": float(previous_row["Current_Price"]),
+    }
+
     st.info(
-        "Fields are prefilled from the latest packaged canonical observation. "
-        "Every value remains editable before prediction."
+        "Enter seven known Gold-market values. The app constructs the seven technical "
+        "predictors from the bundled historical price series and uses the latest stored "
+        "external lag values. No target value is requested."
     )
-    if st.button("Reset to latest packaged values", type="secondary"):
-        for predictor in PREDICTORS:
-            st.session_state[f"manual_{predictor}"] = float(latest_values[predictor])
+    st.warning(
+        "The USD Index and U.S. 10-year real-yield inputs are the latest values stored in "
+        "the coursework dataset; they are not fetched live. This interface is therefore "
+        "an educational next-record prototype."
+    )
+
+    if st.button("Reset seven fields", type="secondary"):
+        for predictor in MANUAL_PREDICTORS:
+            st.session_state[f"manual_{predictor}"] = defaults[predictor]
         st.session_state["manual_origin_date"] = latest_origin_date
 
-    for predictor in PREDICTORS:
-        st.session_state.setdefault(f"manual_{predictor}", float(latest_values[predictor]))
+    for predictor in MANUAL_PREDICTORS:
+        st.session_state.setdefault(f"manual_{predictor}", defaults[predictor])
     st.session_state.setdefault("manual_origin_date", latest_origin_date)
 
     with st.form("manual_prediction_form"):
@@ -454,31 +562,39 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
             key="manual_origin_date",
             help="Display and record-keeping only. This date is never passed to a model.",
         )
-        for group_name, predictors in INPUT_GROUPS.items():
-            if group_name == "Current Gold Market Data":
-                st.markdown(f"#### {group_name}")
-                group_container = st.container()
-            else:
-                group_container = st.expander(group_name, expanded=True)
-            with group_container:
-                columns = st.columns(2)
-                for index, predictor in enumerate(predictors):
-                    with columns[index % 2]:
-                        st.number_input(
-                            FIELD_LABELS[predictor],
-                            key=f"manual_{predictor}",
-                            format="%.8f",
-                            help=f"{FIELD_HELP[predictor]} Model field: {predictor}",
-                        )
+        st.markdown("#### Known Gold Market Data")
+        columns = st.columns(2)
+        for index, predictor in enumerate(MANUAL_PREDICTORS):
+            with columns[index % 2]:
+                number_format = "%.2f" if predictor != "Current_Volume" else "%.4f"
+                st.number_input(
+                    FIELD_LABELS[predictor],
+                    key=f"manual_{predictor}",
+                    format=number_format,
+                    help=f"{FIELD_HELP[predictor]} Model field: {predictor}",
+                )
         submitted = st.form_submit_button("Predict Next Gold Price", type="primary")
 
     if submitted:
         try:
-            frame = pd.DataFrame(
-                [[st.session_state[f"manual_{name}"] for name in PREDICTORS]],
-                columns=PREDICTORS,
-            )
-            frame = ensure_finite_predictor_frame(frame)
+            manual_values = {
+                name: st.session_state[f"manual_{name}"] for name in MANUAL_PREDICTORS
+            }
+            frame = build_model_input_from_seven(canonical, manual_values)
+
+            with st.expander("Automatically constructed 16-model-input row", expanded=False):
+                display_inputs = pd.DataFrame({
+                    "Predictor": PREDICTORS,
+                    "Value": [float(frame.iloc[0][name]) for name in PREDICTORS],
+                    "Source": [
+                        "User input" if name in MANUAL_PREDICTORS
+                        else "Calculated from stored price history" if name in CALCULATED_PREDICTORS
+                        else "Latest stored external lag (not live)"
+                        for name in PREDICTORS
+                    ],
+                })
+                st.dataframe(display_inputs, width="stretch", hide_index=True)
+
             results = predict_all_models(bundle["models"], frame)
             render_prediction_results(
                 results,
@@ -500,7 +616,10 @@ def render_future_prediction(bundle: dict[str, Any]) -> None:
         "The next recorded observation is not a guaranteed calendar-day forecast. Do not enter "
         "Target_Next_Return, Target_Next_Price, Target_Date or Split."
     )
-    st.caption("Enter all 16 predictor values directly below, then run the four frozen models.")
+    st.caption(
+        "Enter seven known Gold-market fields. The app constructs the remaining model inputs "
+        "without requesting the future target."
+    )
     render_manual_input(bundle)
 
 
