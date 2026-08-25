@@ -1,0 +1,131 @@
+{
+    "Creation_Timestamp": "2026-08-25T12:17:07.669675",
+    "Input_Path": "/content/Gold_Price_Final_ModelData_External_Return.csv",
+    "Expected_SHA256": "bbfaf218b9784999210a06e92587ca2135d69f4d7d874e68b16dd2045dd37e64",
+    "Actual_SHA256": "bbfaf218b9784999210a06e92587ca2135d69f4d7d874e68b16dd2045dd37e64",
+    "Shape": [
+        3073,
+        21
+    ],
+    "Predictors": [
+        "Current_Price",
+        "Current_Open",
+        "Current_High",
+        "Current_Low",
+        "Current_Volume",
+        "Price_Lag1",
+        "Price_Lag2",
+        "Current_CHG",
+        "MA_7",
+        "MA_30",
+        "Volatility_7",
+        "Volatility_30",
+        "Momentum_7",
+        "Momentum_30",
+        "USD_Index_Return_Lag1",
+        "US10Y_Real_Yield_Change_Lag1"
+    ],
+    "Target": "Target_Next_Return",
+    "Reconstruction_Formula": "Predicted_Next_Price = Current_Price * (1 + Predicted_Next_Return)",
+    "Train_Count": 2458,
+    "Evaluation_Count": 615,
+    "Search_Method": "RandomizedSearchCV",
+    "Randomized_Search_N_Iter": 60,
+    "Random_State": 42,
+    "Selected_Parameters": {
+        "model__kernel": "rbf",
+        "model__gamma": 1,
+        "model__epsilon": 0.005,
+        "model__C": 0.001
+    },
+    "Best_CV_Reconstructed_Price_RMSE": 323.30797246951795,
+    "Tested_Search_Space": [
+        {
+            "model__kernel": [
+                "linear"
+            ],
+            "model__C": [
+                0.001,
+                0.01,
+                0.1,
+                1,
+                10
+            ],
+            "model__epsilon": [
+                0.0005,
+                0.001,
+                0.0025,
+                0.005,
+                0.0075,
+                0.01
+            ]
+        },
+        {
+            "model__kernel": [
+                "rbf"
+            ],
+            "model__C": [
+                0.001,
+                0.01,
+                0.1,
+                1,
+                10
+            ],
+            "model__epsilon": [
+                0.0005,
+                0.001,
+                0.0025,
+                0.005,
+                0.0075,
+                0.01
+            ],
+            "model__gamma": [
+                "scale",
+                0.01,
+                0.1,
+                1
+            ]
+        }
+    ],
+    "TimeSeriesSplit_Details": "TimeSeriesSplit(gap=0, max_train_size=None, n_splits=5, test_size=None)",
+    "CV_Target_Date_Availability": "PASS",
+    "First_WalkForward_History_Count": 2458,
+    "Last_WalkForward_History_Count": 3072,
+    "SVR_Metrics": {
+        "Model": "SVR",
+        "Price_RMSE": 870.3916412161584,
+        "Price_MAE": 553.3602318763727,
+        "Price_R2": 0.9982103045064442,
+        "Price_MAPE_Percent": 0.632420030038129,
+        "Price_NRMSE_Percent": 1.0585261223474154,
+        "Return_RMSE": 0.009111928127948874,
+        "Return_MAE": 0.006323740258091591,
+        "Return_R2": -0.007835043921964768,
+        "Directional_Accuracy_Percent": 60.65040650406503,
+        "RMSE_Skill_vs_Persistence": 0.00807241381604773,
+        "MAE_Skill_vs_Persistence": 0.018559250980616726
+    },
+    "Persistence_Metrics": {
+        "Model": "Persistence",
+        "Price_RMSE": 877.4749823872172,
+        "Price_MAE": 563.8243902439025,
+        "Price_R2": 0.9981810565066596,
+        "Price_MAPE_Percent": 0.6436598761231138,
+        "Price_NRMSE_Percent": 1.0671405222428325,
+        "Return_RMSE": 0.009185002692141,
+        "Return_MAE": 0.006440043797848827,
+        "Return_R2": -0.024064851257131314,
+        "Directional_Accuracy_Percent": NaN,
+        "RMSE_Skill_vs_Persistence": 0.0,
+        "MAE_Skill_vs_Persistence": 0.0
+    },
+    "Always_Up_Reference": 60.16260162601627,
+    "Always_Down_Reference": 39.51219512195122,
+    "Flat_Rate_Reference": 0.3252032520325203,
+    "Python_Version": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+    "Pandas_Version": "2.2.2",
+    "NumPy_Version": "2.0.2",
+    "Scikit_Learn_Version": "1.6.1",
+    "Deployment_Purpose": "Out-of-sample predictions via app",
+    "Deployment_Exclusion": "Deployment pipeline strictly excluded from historical Evaluation metrics"
+}

@@ -1,0 +1,133 @@
+{
+  "input": {
+    "csv_filename": "Gold_Price_Final_ModelData_External_Return.csv",
+    "sha256": "bbfaf218b9784999210a06e92587ca2135d69f4d7d874e68b16dd2045dd37e64",
+    "shape": [
+      3073,
+      21
+    ],
+    "train_rows": 2458,
+    "evaluation_rows": 615
+  },
+  "predictors_in_order": [
+    "Current_Price",
+    "Current_Open",
+    "Current_High",
+    "Current_Low",
+    "Current_Volume",
+    "Price_Lag1",
+    "Price_Lag2",
+    "Current_CHG",
+    "MA_7",
+    "MA_30",
+    "Volatility_7",
+    "Volatility_30",
+    "Momentum_7",
+    "Momentum_30",
+    "USD_Index_Return_Lag1",
+    "US10Y_Real_Yield_Change_Lag1"
+  ],
+  "target": "Target_Next_Return",
+  "reconstruction_formula": "Predicted_Next_Price = Current_Price * (1 + Predicted_Next_Return)",
+  "selected_parameters": {
+    "n_estimators": 500,
+    "min_samples_split": 2,
+    "min_samples_leaf": 10,
+    "max_features": "sqrt",
+    "max_depth": 5,
+    "bootstrap": true,
+    "random_state": 42
+  },
+  "search_space_tested": {
+    "n_estimators": [
+      200,
+      300,
+      500
+    ],
+    "max_depth": [
+      null,
+      5,
+      10,
+      20
+    ],
+    "min_samples_split": [
+      2,
+      5,
+      10
+    ],
+    "min_samples_leaf": [
+      1,
+      2,
+      5,
+      10
+    ],
+    "max_features": [
+      1.0,
+      "sqrt",
+      0.5
+    ],
+    "bootstrap": [
+      true
+    ]
+  },
+  "time_series_split": {
+    "n_splits": 5,
+    "randomized_search_n_iter": 30,
+    "random_state": 42,
+    "tuning_partition": "Train only",
+    "best_cv_price_rmse": 334.0636105300312
+  },
+  "walk_forward": {
+    "first_evaluation_available_training_rows": 2458,
+    "last_evaluation_available_training_rows": 3072,
+    "n_predictions": 615
+  },
+  "direction_references": {
+    "Always_Up_Accuracy_Percent": 60.16260162601627,
+    "Always_Down_Accuracy_Percent": 39.51219512195122,
+    "Flat_Return_Rate_Percent": 0.3252032520325203
+  },
+  "metrics": [
+    {
+      "Model": "Random Forest",
+      "Price_RMSE": 897.163145939834,
+      "Price_MAE": 568.9036408915748,
+      "Price_R2": 0.998098516454709,
+      "Price_MAPE_Percent": 0.6514762883797928,
+      "Price_NRMSE_Percent": 1.0910842671441205,
+      "Return_RMSE": 0.009350061189478455,
+      "Return_MAE": 0.006515287700448166,
+      "Return_R2": -0.061201341692214806,
+      "Directional_Accuracy_Percent": 54.95934959349593,
+      "RMSE_Skill_vs_Persistence": -0.02243729331069244,
+      "MAE_Skill_vs_Persistence": -0.009008568510977533
+    },
+    {
+      "Model": "Persistence",
+      "Price_RMSE": 877.4749823872172,
+      "Price_MAE": 563.8243902439025,
+      "Price_R2": 0.9981810565066596,
+      "Price_MAPE_Percent": 0.6436598761231138,
+      "Price_NRMSE_Percent": 1.0671405222428325,
+      "Return_RMSE": 0.009185002692141,
+      "Return_MAE": 0.006440043797848827,
+      "Return_R2": -0.024064851257131314,
+      "Directional_Accuracy_Percent": NaN,
+      "RMSE_Skill_vs_Persistence": 0.0,
+      "MAE_Skill_vs_Persistence": 0.0
+    }
+  ],
+  "library_versions": {
+    "python": "3.13.15",
+    "pandas": "2.2.3",
+    "numpy": "2.1.3",
+    "scikit_learn": "1.6.1",
+    "matplotlib": "3.10.0",
+    "joblib": "1.5.3"
+  },
+  "notes": [
+    "The all-data deployment model (fit on all 3,073 rows) was NOT used to produce or replace the 615 walk-forward Evaluation predictions or metrics reported in this notebook; it is provided for downstream deployment use only.",
+    "Random Forest does not require feature scaling; no StandardScaler is used anywhere in this notebook.",
+    "Hyperparameters were selected once using Train-only TimeSeriesSplit + RandomizedSearchCV and then frozen; the Evaluation partition was never used for tuning or model selection."
+  ]
+}

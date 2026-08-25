@@ -1,0 +1,116 @@
+{
+  "comparison": "H1 next-recorded gold price",
+  "models": [
+    "MLR",
+    "SVR",
+    "KNN",
+    "RF"
+  ],
+  "source_files": {
+    "MLR": {
+      "predictions": {
+        "filename": "MLR_WalkForward_Predictions.csv",
+        "sha256": "baa0787a9699273665fb00b50199f1b1362122bfdff1f78642e098e405ffacc7"
+      },
+      "metrics": {
+        "filename": "MLR_Metrics.csv",
+        "sha256": "33c1416e9ab90e2779f50700a8bcb73b6ba64f7601a8639e62a0730f387dd858"
+      },
+      "configuration": {
+        "filename": "MLR_Configuration.json",
+        "sha256": "0dca94efcafeba9b9eb24338cd9782a60b311c70304c67758c022238a8803e54"
+      }
+    },
+    "SVR": {
+      "predictions": {
+        "filename": "SVR_WalkForward_Predictions.csv",
+        "sha256": "656237ac93e7cf1282895720d3cd0bb3398f57c6293e059d8d5632b006afe959"
+      },
+      "metrics": {
+        "filename": "SVR_Metrics.csv",
+        "sha256": "46ec961cbb08162cd9845dc69dc13b2a6dd6cd21ecee0a4d29f39a4f02a62665"
+      },
+      "configuration": {
+        "filename": "SVR_Configuration.json",
+        "sha256": "a9418de3ba8f433e85939aa313cc1bb5653ea9900b08177efbec34bf819f1a89"
+      }
+    },
+    "KNN": {
+      "predictions": {
+        "filename": "KNN_WalkForward_Predictions.csv",
+        "sha256": "06e79de2bae956d9778edb19981780a45faa2b7cd7a5b5c37b315d141110be40"
+      },
+      "metrics": {
+        "filename": "KNN_Metrics.csv",
+        "sha256": "524f481dd8abfc16c0b76925dbf9429bcd0cd30e77cb9708a883d341bb3c810f"
+      },
+      "configuration": {
+        "filename": "KNN_Configuration.json",
+        "sha256": "2547047143579b3320e607141029a2bc88d42ad394304569a8c8bb3961987454"
+      }
+    },
+    "RF": {
+      "predictions": {
+        "filename": "RandomForest_WalkForward_Predictions.csv",
+        "sha256": "634c7560d419c59480cceda92d9794762b938c86e7b943f0f5dfb2b6880b652e"
+      },
+      "metrics": {
+        "filename": "RandomForest_Metrics.csv",
+        "sha256": "9087c98db0c41e46b3084b98075f7849b766c85cc5dc9caf3505190da1a236d2"
+      },
+      "configuration": {
+        "filename": "RandomForest_Configuration.json",
+        "sha256": "913677ca59acea8a373b65c44d659d6a9a7a08c816ccba61f2e9fb85a4c8768d"
+      }
+    }
+  },
+  "canonical_csv_sha256": "bbfaf218b9784999210a06e92587ca2135d69f4d7d874e68b16dd2045dd37e64",
+  "predictors": [
+    "Current_Price",
+    "Current_Open",
+    "Current_High",
+    "Current_Low",
+    "Current_Volume",
+    "Price_Lag1",
+    "Price_Lag2",
+    "Current_CHG",
+    "MA_7",
+    "MA_30",
+    "Volatility_7",
+    "Volatility_30",
+    "Momentum_7",
+    "Momentum_30",
+    "USD_Index_Return_Lag1",
+    "US10Y_Real_Yield_Change_Lag1"
+  ],
+  "target": "Target_Next_Return",
+  "training_rows": 2458,
+  "evaluation_rows_per_model": 615,
+  "combined_prediction_rows": 2460,
+  "reconstruction_formula": "Predicted_Next_Price = Current_Price * (1 + Predicted_Next_Return)",
+  "ranking_criteria": [
+    "lowest Price_RMSE",
+    "lowest Price_MAE",
+    "lowest Price_NRMSE_Percent"
+  ],
+  "direction_references_percent": {
+    "always_up": 60.16260162601627,
+    "always_down": 39.51219512195122,
+    "flat_rate": 0.3252032520325203
+  },
+  "configuration_field_notes": {
+    "MLR": "Deployment exclusion field unavailable (optional); saved walk-forward predictions were used only.",
+    "SVR": "Deployment exclusion evidence available and consistent.",
+    "KNN": "Deployment exclusion evidence available and consistent.",
+    "RF": "Deployment exclusion evidence available and consistent."
+  },
+  "metrics_verification": {
+    "MLR": "PASS",
+    "SVR": "PASS",
+    "KNN": "PASS",
+    "RF": "PASS"
+  },
+  "historical_evaluation_source": "Saved leakage-safe walk-forward predictions only",
+  "model_fitting_or_tuning_performed": false,
+  "comparison_joblib_created": false
+}

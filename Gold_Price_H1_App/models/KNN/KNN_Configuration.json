@@ -1,0 +1,121 @@
+{
+  "created_utc": "2026-08-25T10:58:19.405488+00:00",
+  "input_path": "/content/Gold_Price_Final_ModelData_External_Return.csv",
+  "input_sha256": "bbfaf218b9784999210a06e92587ca2135d69f4d7d874e68b16dd2045dd37e64",
+  "shape": [
+    3073,
+    21
+  ],
+  "predictors_in_order": [
+    "Current_Price",
+    "Current_Open",
+    "Current_High",
+    "Current_Low",
+    "Current_Volume",
+    "Price_Lag1",
+    "Price_Lag2",
+    "Current_CHG",
+    "MA_7",
+    "MA_30",
+    "Volatility_7",
+    "Volatility_30",
+    "Momentum_7",
+    "Momentum_30",
+    "USD_Index_Return_Lag1",
+    "US10Y_Real_Yield_Change_Lag1"
+  ],
+  "target": "Target_Next_Return",
+  "reconstruction_formula": "Predicted_Next_Price = Current_Price * (1 + Predicted_Next_Return)",
+  "train_rows": 2458,
+  "evaluation_rows": 615,
+  "walk_forward_first_history": 2458,
+  "walk_forward_last_history": 3072,
+  "selected_parameters": {
+    "n_neighbors": 401,
+    "weights": "uniform",
+    "p": 2,
+    "algorithm": "auto",
+    "distance": "Euclidean"
+  },
+  "tested_grid": {
+    "model__n_neighbors": [
+      3,
+      5,
+      7,
+      9,
+      15,
+      21,
+      31,
+      51,
+      75,
+      101,
+      151,
+      201,
+      301,
+      401
+    ],
+    "model__weights": [
+      "uniform",
+      "distance"
+    ],
+    "model__p": [
+      1,
+      2
+    ],
+    "model__algorithm": [
+      "auto"
+    ]
+  },
+  "time_series_split": {
+    "n_splits": 5,
+    "tuning_data": "Initial Train only"
+  },
+  "deployment": {
+    "purpose": "Future app predictions only; not used for historical Evaluation metrics.",
+    "training_rows": 3073,
+    "pipeline_steps": [
+      "StandardScaler",
+      "KNeighborsRegressor"
+    ]
+  },
+  "metrics": [
+    {
+      "Model": "KNN",
+      "Price_RMSE": 869.0043088649956,
+      "Price_MAE": 551.7623233562603,
+      "Price_R2": 0.9982160052130429,
+      "Price_MAPE_Percent": 0.6318703198986841,
+      "Price_NRMSE_Percent": 1.0568389191798484,
+      "Return_RMSE": 0.00910418226952064,
+      "Return_MAE": 0.006317177128392832,
+      "Return_R2": -0.006122293476894969,
+      "Directional_Accuracy_Percent": 60.16260162601627,
+      "RMSE_Skill_vs_Persistence": 0.009653464420349311,
+      "MAE_Skill_vs_Persistence": 0.02139330454013233
+    },
+    {
+      "Model": "Persistence",
+      "Price_RMSE": 877.4749823872172,
+      "Price_MAE": 563.8243902439025,
+      "Price_R2": 0.9981810565066596,
+      "Price_MAPE_Percent": 0.6436598761231138,
+      "Price_NRMSE_Percent": 1.0671405222428325,
+      "Return_RMSE": 0.009185002692141,
+      "Return_MAE": 0.006440043797848827,
+      "Return_R2": -0.024064851257131314,
+      "Directional_Accuracy_Percent": NaN,
+      "RMSE_Skill_vs_Persistence": 0.0,
+      "MAE_Skill_vs_Persistence": 0.0
+    }
+  ],
+  "direction_references_percent": {
+    "always_up": 60.16260162601627,
+    "always_down": 39.51219512195122,
+    "flat_rate": 0.3252032520325203
+  },
+  "python_version": "3.13.15 (main, Aug  6 2026, 11:06:23) [GCC 11.4.0]",
+  "platform": "Linux-6.6.122+-x86_64-with-glibc2.35",
+  "pandas_version": "2.2.3",
+  "numpy_version": "2.1.3",
+  "sklearn_version": "1.6.1"
+}
