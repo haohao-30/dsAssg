@@ -25,6 +25,8 @@ Gold_Price_H1_App/
 ├── app.py
 ├── requirements.txt
 ├── README.md
+├── .streamlit/
+│   └── config.toml
 ├── data/
 │   └── Gold_Price_Final_ModelData_External_Return.csv
 ├── models/
@@ -97,7 +99,7 @@ USD_Index_Return_Lag1
 US10Y_Real_Yield_Change_Lag1
 ```
 
-Missing, non-numeric and infinite values are rejected. Users enter all 16 values directly in the grouped application form. The app never requests or uses `Target_Next_Return`, `Target_Next_Price`, `Target_Date` or `Split` as predictors.
+Missing, non-numeric and infinite values are rejected. Users enter seven known Gold-market values: Current Price, Open, High, Low, Volume, Price Lag 1 and Price Lag 2. The app then constructs Current CHG, MA 7/30, Volatility 7/30 and Momentum 7/30 from the bundled historical price sequence. The latest stored USD Index return lag and U.S. 10-year real-yield change lag complete the 16-field model row. These external values are bundled coursework values, not live market updates. The app never requests or uses `Target_Next_Return`, `Target_Next_Price`, `Target_Date` or `Split` as predictors.
 
 ## Return-to-price reconstruction
 
@@ -109,24 +111,28 @@ Predicted_Next_Price = Current_Price × (1 + Predicted_Next_Return)
 
 The app also reports the predicted price change, percentage return and direction for MLR, SVR, KNN and Random Forest.
 
-## Application modes
+## Same-page prediction modes
 
-### 1. H1 Future Prediction
+### Mode 1: Select Existing Date
 
-This mode calls the four frozen deployment joblibs. All 16 predictors are prefilled from the latest packaged canonical observation and remain manually editable. `Origin Date` is retained only for display and record-keeping and is never passed to a model. The app contains no file-upload control.
+The user selects one of the 615 chronological Evaluation origin dates. The seven Gold-market fields are displayed automatically from the frozen canonical dataset. Clicking Predict retrieves the four leakage-safe walk-forward predictions that were saved before deployment fitting. It does not use an all-data deployment model to recreate a historical prediction.
 
-The deployment models were trained on all 3,073 modelling rows. They are intended only for future-style application predictions and must not be used to recreate the historical evaluation period.
+### Mode 2: Manual Input
 
-### 2. Historical Model Comparison
+The user manually enters seven known Gold-market fields and does not enter a date. This mode calls the four frozen deployment joblibs. The app automatically constructs the technical predictors and transparently displays the completed 16-field model row. The deployment models were trained on all 3,073 modelling rows and are reserved for future-style application predictions.
 
-This mode reads only the saved leakage-safe walk-forward CSV files. It displays the frozen ranking and metrics, saved prediction rows, actual-versus-predicted prices, RMSE, MAE, MAPE/NRMSE, prediction-error distribution, directional comparison and skill-versus-persistence charts. Model and date filters change only the view, not the stored results.
+Both input modes appear as tabs on the same page. The main result highlights the frozen overall rank-1 model, while an expandable section displays all four model predictions. The app contains no file-upload control.
+
+## Model Comparison Dashboard
+
+The lower section of the same page always displays the frozen ranking and metrics, saved prediction rows, actual-versus-predicted prices, RMSE, MAE, MAPE/NRMSE, prediction-error distribution, directional comparison and skill-versus-persistence charts. Model and date filters change only the view, not the stored results.
 
 The deployment joblibs are not called for historical metrics or charts. KNN ranked first descriptively, but KNN and SVR only slightly exceeded persistence on reconstructed-price RMSE. Return R² is negative for all four models, while the high price-level R² is influenced by adjacent-price persistence.
 
 ## Leakage-safety boundary
 
-- Future mode uses all-data deployment models only for user-supplied future-style inputs.
-- Historical mode uses saved 615-step walk-forward predictions only.
+- Existing-date mode uses saved 615-step walk-forward predictions only.
+- Manual-input mode uses all-data deployment models only for future-style inputs.
 - The app does not train, retune or update an estimator.
 - The app does not recreate historical predictions from deployment joblibs.
 - No comparison or ensemble joblib is created.
