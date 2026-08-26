@@ -387,22 +387,25 @@ def apply_plot_style(fig: go.Figure, *, height: int = 430) -> go.Figure:
 
 
 def render_prediction_results(
-    results: pd.DataFrame, current_price: float, origin_date: object
+    results: pd.DataFrame,
+    current_price: float,
+    best_model: str,
+    context_caption: str,
 ) -> None:
-    st.subheader("Four-model H1 prediction")
+    best_row = results.loc[results["Model"].eq(best_model)].iloc[0]
+    st.markdown("#### Best-ranked model prediction")
     st.caption(
-        "Each deployment model predicts the next recorded return. The displayed price is "
-        "reconstructed from the supplied Current_Price."
+        f"{best_model} is the frozen overall rank-1 model based on the historical comparison. "
+        "This rank was not selected from the current prediction."
     )
-    st.caption(f"Origin Date (record-keeping only; excluded from model input): {origin_date}")
-    styled = results.style.format({
-        "Current Price": "{:,.2f}",
-        "Predicted Next Return": "{:+.8f}",
-        "Predicted Return Percentage": "{:+.4f}%",
-        "Predicted Price Change": "{:+,.2f}",
-        "Predicted Next Price": "{:,.2f}",
-    })
-    st.dataframe(styled, width="stretch", hide_index=True)
+    best_cols = st.columns(4)
+    best_cols[0].metric("Best model", best_model)
+    best_cols[1].metric("Predicted next price", f"{best_row['Predicted Next Price']:,.2f}")
+    best_cols[2].metric(
+        "Predicted return", f"{best_row['Predicted Return Percentage']:+.4f}%"
+    )
+    best_cols[3].metric("Direction", str(best_row["Direction"]))
+    st.caption(context_caption)
 
     price_spread = float(
         results["Predicted Next Price"].max() - results["Predicted Next Price"].min()
@@ -411,49 +414,60 @@ def render_prediction_results(
         results["Predicted Return Percentage"].max()
         - results["Predicted Return Percentage"].min()
     )
-    st.info(
-        f"The four predicted next prices span {price_spread:,.2f} price units, "
-        f"equivalent to a {return_spread:.4f} percentage-point spread in predicted returns. "
-        "This is model disagreement, not evidence that one future prediction is already best."
-    )
-
     if (results["Predicted Next Price"] <= 0).any():
         st.warning("At least one reconstructed price is non-positive. Recheck the supplied predictors.")
 
-    price_fig = go.Figure()
-    price_fig.add_bar(
-        x=results["Model"],
-        y=results["Predicted Next Price"],
-        marker_color=[MODEL_COLORS[label] for label in results["Model"]],
-        text=[f"{value:,.2f}" for value in results["Predicted Next Price"]],
-        textposition="outside",
-        hovertemplate="%{x}<br>Predicted next price: %{y:,.2f}<extra></extra>",
-    )
-    price_fig.add_hline(
-        y=current_price,
-        line_dash="dash",
-        line_color="#6B7280",
-        annotation_text=f"Current price: {current_price:,.2f}",
-        annotation_position="bottom right",
-    )
-    price_fig.update_layout(title="Predicted Next Recorded Gold Price", showlegend=False)
-    price_fig.update_yaxes(title="Gold price", tickformat=",.0f")
-    st.plotly_chart(apply_plot_style(price_fig), width="stretch", config={"displaylogo": False})
+    with st.expander("View all four model predictions", expanded=False):
+        styled = results.style.format({
+            "Current Price": "{:,.2f}",
+            "Predicted Next Return": "{:+.8f}",
+            "Predicted Return Percentage": "{:+.4f}%",
+            "Predicted Price Change": "{:+,.2f}",
+            "Predicted Next Price": "{:,.2f}",
+        })
+        st.dataframe(styled, width="stretch", hide_index=True)
+        st.info(
+            f"The four predicted next prices span {price_spread:,.2f} price units, "
+            f"equivalent to a {return_spread:.4f} percentage-point return spread."
+        )
 
-    return_fig = go.Figure()
-    colors = ["#2A9D8F" if value >= 0 else "#C65D4B" for value in results["Predicted Next Return"]]
-    return_fig.add_bar(
-        x=results["Model"],
-        y=100 * results["Predicted Next Return"],
-        marker_color=colors,
-        text=[f"{100 * value:+.3f}%" for value in results["Predicted Next Return"]],
-        textposition="outside",
-        hovertemplate="%{x}<br>Predicted next return: %{y:+.4f}%<extra></extra>",
-    )
-    return_fig.add_hline(y=0, line_dash="dash", line_color="#6B7280")
-    return_fig.update_layout(title="Predicted Next Return", showlegend=False)
-    return_fig.update_yaxes(title="Predicted return (%)", ticksuffix="%")
-    st.plotly_chart(apply_plot_style(return_fig), width="stretch", config={"displaylogo": False})
+        price_fig = go.Figure()
+        price_fig.add_bar(
+            x=results["Model"],
+            y=results["Predicted Next Price"],
+            marker_color=[MODEL_COLORS[label] for label in results["Model"]],
+            text=[f"{value:,.2f}" for value in results["Predicted Next Price"]],
+            textposition="outside",
+            hovertemplate="%{x}<br>Predicted next price: %{y:,.2f}<extra></extra>",
+        )
+        price_fig.add_hline(
+            y=current_price,
+            line_dash="dash",
+            line_color="#6B7280",
+            annotation_text=f"Current price: {current_price:,.2f}",
+            annotation_position="bottom right",
+        )
+        price_fig.update_layout(title="All-model Predicted Next Price", showlegend=False)
+        price_fig.update_yaxes(title="Gold price", tickformat=",.0f")
+        st.plotly_chart(apply_plot_style(price_fig), width="stretch", config={"displaylogo": False})
+
+        return_fig = go.Figure()
+        colors = [
+            "#2A9D8F" if value >= 0 else "#C65D4B"
+            for value in results["Predicted Next Return"]
+        ]
+        return_fig.add_bar(
+            x=results["Model"],
+            y=100 * results["Predicted Next Return"],
+            marker_color=colors,
+            text=[f"{100 * value:+.3f}%" for value in results["Predicted Next Return"]],
+            textposition="outside",
+            hovertemplate="%{x}<br>Predicted next return: %{y:+.4f}%<extra></extra>",
+        )
+        return_fig.add_hline(y=0, line_dash="dash", line_color="#6B7280")
+        return_fig.update_layout(title="All-model Predicted Next Return", showlegend=False)
+        return_fig.update_yaxes(title="Predicted return (%)", ticksuffix="%")
+        st.plotly_chart(apply_plot_style(return_fig), width="stretch", config={"displaylogo": False})
 
 
 def build_model_input_from_seven(
@@ -523,7 +537,6 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
     canonical = bundle["canonical"]
     latest_row = canonical.iloc[-1]
     previous_row = canonical.iloc[-2]
-    latest_origin_date = pd.to_datetime(latest_row["Origin_Date"]).date()
 
     # Defaults represent a convenient editable starting point for a new record.
     defaults = {
@@ -550,18 +563,11 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
     if st.button("Reset seven fields", type="secondary"):
         for predictor in MANUAL_PREDICTORS:
             st.session_state[f"manual_{predictor}"] = defaults[predictor]
-        st.session_state["manual_origin_date"] = latest_origin_date
 
     for predictor in MANUAL_PREDICTORS:
         st.session_state.setdefault(f"manual_{predictor}", defaults[predictor])
-    st.session_state.setdefault("manual_origin_date", latest_origin_date)
 
     with st.form("manual_prediction_form"):
-        st.date_input(
-            "Origin Date",
-            key="manual_origin_date",
-            help="Display and record-keeping only. This date is never passed to a model.",
-        )
         st.markdown("#### Known Gold Market Data")
         columns = st.columns(2)
         for index, predictor in enumerate(MANUAL_PREDICTORS):
@@ -573,7 +579,7 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
                     format=number_format,
                     help=f"{FIELD_HELP[predictor]} Model field: {predictor}",
                 )
-        submitted = st.form_submit_button("Predict Next Gold Price", type="primary")
+        submitted = st.form_submit_button("Predict Manual Inputs", type="primary")
 
     if submitted:
         try:
@@ -596,31 +602,110 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
                 st.dataframe(display_inputs, width="stretch", hide_index=True)
 
             results = predict_all_models(bundle["models"], frame)
+            best_model = str(
+                bundle["ranking"].sort_values("Overall_Rank").iloc[0]["Model"]
+            )
             render_prediction_results(
                 results,
                 float(frame.iloc[0]["Current_Price"]),
-                st.session_state["manual_origin_date"],
+                best_model,
+                "Future-style prediction from seven manually entered fields. "
+                "The actual next outcome is not available to the models.",
             )
         except ValueError as exc:
             st.error(str(exc))
 
 
-def render_future_prediction(bundle: dict[str, Any]) -> None:
-    st.header("H1 Future Prediction")
-    st.write(
-        "Supply information available at the latest completed observation. The four frozen "
-        "deployment models predict **Target_Next_Return**, which is converted into a next "
-        "recorded price using the current price."
+def render_existing_date_prediction(bundle: dict[str, Any]) -> None:
+    canonical = bundle["canonical"].copy()
+    historical = bundle["historical"].copy()
+    canonical["_Origin_Date"] = pd.to_datetime(canonical["Origin_Date"]).dt.date
+    historical["_Origin_Date"] = pd.to_datetime(historical["Origin_Date"]).dt.date
+
+    available_dates = sorted(historical["_Origin_Date"].dropna().unique().tolist())
+    selected_date = st.selectbox(
+        "Select an existing Evaluation origin date",
+        available_dates,
+        index=len(available_dates) - 1,
+        format_func=lambda value: value.strftime("%Y-%m-%d"),
     )
-    st.warning(
-        "The next recorded observation is not a guaranteed calendar-day forecast. Do not enter "
-        "Target_Next_Return, Target_Next_Price, Target_Date or Split."
-    )
+
+    matching = canonical.loc[canonical["_Origin_Date"].eq(selected_date)]
+    if matching.shape[0] != 1:
+        st.error("The selected date does not map to exactly one canonical observation.")
+        return
+    selected_row = matching.iloc[0]
+
+    st.markdown("#### Automatically displayed Gold Market Data")
+    field_columns = st.columns(4)
+    for index, predictor in enumerate(MANUAL_PREDICTORS):
+        value = float(selected_row[predictor])
+        display_value = f"{value:,.2f}" if predictor != "Current_Volume" else f"{value:,.4f}"
+        field_columns[index % 4].metric(FIELD_LABELS[predictor], display_value)
+
     st.caption(
-        "Enter seven known Gold-market fields. The app constructs the remaining model inputs "
-        "without requesting the future target."
+        "This mode uses the saved walk-forward predictions produced before deployment fitting. "
+        "The final deployment joblibs are not used for historical dates."
     )
-    render_manual_input(bundle)
+
+    if st.button("Predict Selected Date", type="primary"):
+        selected_predictions = historical.loc[
+            historical["_Origin_Date"].eq(selected_date)
+        ].copy()
+        if set(selected_predictions["Model"]) != set(MODEL_ORDER):
+            st.error("The selected date does not contain all four saved model predictions.")
+            return
+        selected_predictions = (
+            selected_predictions.set_index("Model").loc[MODEL_ORDER].reset_index()
+        )
+        current_price = float(selected_predictions.iloc[0]["Current_Price"])
+        results = pd.DataFrame({
+            "Model": selected_predictions["Model"],
+            "Current Price": selected_predictions["Current_Price"].astype(float),
+            "Predicted Next Return": selected_predictions["Predicted_Next_Return"].astype(float),
+            "Predicted Return Percentage": (
+                100.0 * selected_predictions["Predicted_Next_Return"].astype(float)
+            ),
+            "Predicted Price Change": (
+                selected_predictions["Predicted_Next_Price"].astype(float) - current_price
+            ),
+            "Predicted Next Price": selected_predictions["Predicted_Next_Price"].astype(float),
+            "Direction": [
+                direction_from_return(float(value))
+                for value in selected_predictions["Predicted_Next_Return"]
+            ],
+        })
+        best_model = str(
+            bundle["ranking"].sort_values("Overall_Rank").iloc[0]["Model"]
+        )
+        render_prediction_results(
+            results,
+            current_price,
+            best_model,
+            f"Leakage-safe saved prediction for Origin Date {selected_date:%Y-%m-%d}.",
+        )
+
+        with st.expander("Reveal the historical outcome", expanded=False):
+            outcome = selected_predictions.iloc[0]
+            st.write(f"**Target Date:** {pd.to_datetime(outcome['Target_Date']).date()}")
+            st.write(f"**Actual Next Return:** {float(outcome['Actual_Next_Return']):+.6%}")
+            st.write(f"**Actual Next Price:** {float(outcome['Actual_Next_Price']):,.2f}")
+
+
+def render_prediction_workspace(bundle: dict[str, Any]) -> None:
+    st.header("H1 Prediction")
+    st.write(
+        "Choose one of two input modes on this page. Both modes produce four model predictions, "
+        "while the main result card highlights the frozen rank-1 model."
+    )
+    existing_tab, manual_tab = st.tabs([
+        "Mode 1 · Select Existing Date",
+        "Mode 2 · Manual Input",
+    ])
+    with existing_tab:
+        render_existing_date_prediction(bundle)
+    with manual_tab:
+        render_manual_input(bundle)
 
 
 def render_ranking_and_metrics(metrics: pd.DataFrame, ranking: pd.DataFrame) -> None:
@@ -907,14 +992,10 @@ def render_historical_comparison(bundle: dict[str, Any]) -> None:
     render_historical_charts(filtered, historical, metrics, selected_models)
 
 
-def render_sidebar(bundle: dict[str, Any]) -> str:
+def render_sidebar(bundle: dict[str, Any]) -> None:
     with st.sidebar:
         st.markdown("## Gold Price H1")
         st.caption("Frozen four-model return-to-price prototype")
-        mode = st.radio(
-            "Application mode",
-            ["H1 Future Prediction", "Historical Model Comparison"],
-        )
         st.divider()
         st.markdown("#### Startup validation")
         st.success("All required checks passed")
@@ -929,12 +1010,12 @@ def render_sidebar(bundle: dict[str, Any]) -> str:
             st.write("SVR and KNN retain their fitted scaling steps inside saved Pipelines.")
         with st.expander("Method boundary"):
             st.write(
-                "Future mode uses frozen deployment models. Historical mode uses only saved "
-                "walk-forward CSV results. No model is retrained or retuned in this app."
+                "Existing-date predictions use saved walk-forward results. Manual-input "
+                "predictions use frozen deployment models. The comparison dashboard uses "
+                "saved CSV results. No model is retrained or retuned in this app."
             )
         st.divider()
         st.caption("Educational use only — not financial advice.")
-    return mode
 
 
 def configure_page() -> None:
@@ -947,9 +1028,16 @@ def configure_page() -> None:
     st.markdown(
         """
         <style>
-        .stApp { background: #F7F9FC; }
+        html, body, .stApp, [data-testid="stAppViewContainer"] {
+            background: #F7F9FC !important;
+            color: #172B4D !important;
+        }
         .block-container { max-width: 1420px; padding-top: 2rem; padding-bottom: 3rem; }
-        h1, h2, h3 { color: #172B4D; letter-spacing: -0.02em; }
+        h1, h2, h3, h4, p, label, [data-testid="stMarkdownContainer"] {
+            color: #172B4D !important;
+        }
+        h1, h2, h3 { letter-spacing: -0.02em; }
+        [data-testid="stAlert"] p { color: #172B4D !important; }
         div[data-testid="stMetric"] {
             background: white; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px;
         }
@@ -978,11 +1066,10 @@ def main() -> None:
         st.info("Check the bundled files and install the pinned requirements, then restart the app.")
         st.stop()
 
-    mode = render_sidebar(bundle)
-    if mode == "H1 Future Prediction":
-        render_future_prediction(bundle)
-    else:
-        render_historical_comparison(bundle)
+    render_sidebar(bundle)
+    render_prediction_workspace(bundle)
+    st.divider()
+    render_historical_comparison(bundle)
 
     st.divider()
     st.caption(
