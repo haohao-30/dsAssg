@@ -566,17 +566,18 @@ def build_model_input_from_seven(
 def render_manual_input(bundle: dict[str, Any]) -> None:
     canonical = bundle["canonical"]
     latest_row = canonical.iloc[-1]
-    previous_row = canonical.iloc[-2]
 
-    # Defaults represent a convenient editable starting point for a new record.
+    # Defaults reproduce the latest packaged modelling row exactly. In
+    # particular, Price_Lag1 and Price_Lag2 are the row's actual lag features;
+    # they must not be replaced by Current_Price and the previous row's price.
     defaults = {
         "Current_Price": float(latest_row["Current_Price"]),
         "Current_Open": float(latest_row["Current_Open"]),
         "Current_High": float(latest_row["Current_High"]),
         "Current_Low": float(latest_row["Current_Low"]),
         "Current_Volume": float(latest_row["Current_Volume"]),
-        "Price_Lag1": float(latest_row["Current_Price"]),
-        "Price_Lag2": float(previous_row["Current_Price"]),
+        "Price_Lag1": float(latest_row["Price_Lag1"]),
+        "Price_Lag2": float(latest_row["Price_Lag2"]),
     }
 
     st.info(
@@ -589,6 +590,12 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
         "the coursework dataset; they are not fetched live. This interface is therefore "
         "an educational next-record prototype."
     )
+
+    defaults_version = "latest-packaged-row-v2"
+    if st.session_state.get("manual_defaults_version") != defaults_version:
+        for predictor in MANUAL_PREDICTORS:
+            st.session_state[f"manual_{predictor}"] = defaults[predictor]
+        st.session_state["manual_defaults_version"] = defaults_version
 
     if st.button("Reset seven fields", type="secondary"):
         for predictor in MANUAL_PREDICTORS:
