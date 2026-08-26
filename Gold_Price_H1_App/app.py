@@ -494,6 +494,34 @@ def build_model_input_from_seven(
     ):
         raise ValueError("Current Low cannot be above Open, High or Current Price.")
 
+    # If these seven values reproduce one packaged record, reuse that record's
+    # complete feature context. This makes both input modes equivalent when
+    # their seven visible values are identical.
+    numeric_seven = canonical[MANUAL_PREDICTORS].apply(pd.to_numeric, errors="coerce")
+    tolerances = {
+        name: (5e-5 if name == "Current_Volume" else 5e-3)
+        for name in MANUAL_PREDICTORS
+    }
+    match_mask = np.ones(len(canonical), dtype=bool)
+    for name in MANUAL_PREDICTORS:
+        match_mask &= np.isclose(
+            numeric_seven[name].to_numpy(dtype=float),
+            values[name],
+            rtol=0.0,
+            atol=tolerances[name],
+        )
+    matched_positions = np.flatnonzero(match_mask)
+    if matched_positions.size == 1:
+        matched_position = int(matched_positions[0])
+        frame = ensure_finite_predictor_frame(
+            canonical.iloc[[matched_position]][PREDICTORS].copy()
+        )
+        frame.attrs["input_context"] = "packaged_record"
+        frame.attrs["matched_origin_date"] = str(
+            pd.to_datetime(canonical.iloc[matched_position]["Origin_Date"]).date()
+        )
+        return frame
+
     stored_prices = pd.to_numeric(canonical["Current_Price"], errors="raise").astype(float)
     if len(stored_prices) < 30:
         raise ValueError("At least 30 stored historical prices are required.")
@@ -530,7 +558,9 @@ def build_model_input_from_seven(
         row[name] = float(latest_stored[name])
 
     frame = pd.DataFrame([[row[name] for name in PREDICTORS]], columns=PREDICTORS)
-    return ensure_finite_predictor_frame(frame)
+    frame = ensure_finite_predictor_frame(frame)
+    frame.attrs["input_context"] = "latest_packaged_history"
+    return frame
 
 
 def render_manual_input(bundle: dict[str, Any]) -> None:
@@ -605,12 +635,22 @@ def render_manual_input(bundle: dict[str, Any]) -> None:
             best_model = str(
                 bundle["ranking"].sort_values("Overall_Rank").iloc[0]["Model"]
             )
+            if frame.attrs.get("input_context") == "packaged_record":
+                context_caption = (
+                    "Final-deployment replay using the complete packaged predictor row for "
+                    f"Origin Date {frame.attrs['matched_origin_date']}. The same seven visible "
+                    "values in Select Existing Date produce the same model input and output."
+                )
+            else:
+                context_caption = (
+                    "Future-style prediction from seven manually entered fields using the latest "
+                    "packaged historical context. The actual next outcome is not available to the models."
+                )
             render_prediction_results(
                 results,
                 float(frame.iloc[0]["Current_Price"]),
                 best_model,
-                "Future-style prediction from seven manually entered fields. "
-                "The actual next outcome is not available to the models.",
+                context_caption,
             )
         except ValueError as exc:
             st.error(str(exc))
@@ -644,37 +684,17 @@ def render_existing_date_prediction(bundle: dict[str, Any]) -> None:
         field_columns[index % 4].metric(FIELD_LABELS[predictor], display_value)
 
     st.caption(
-        "This mode uses the saved walk-forward predictions produced before deployment fitting. "
-        "The final deployment joblibs are not used for historical dates."
+        "This input mode sends the selected record's complete 16-predictor row to the same final "
+        "deployment joblibs used by Manual Input. It is a deployment replay, not a leakage-safe "
+        "historical evaluation result."
     )
 
     if st.button("Predict Selected Date", type="primary"):
-        selected_predictions = historical.loc[
-            historical["_Origin_Date"].eq(selected_date)
-        ].copy()
-        if set(selected_predictions["Model"]) != set(MODEL_ORDER):
-            st.error("The selected date does not contain all four saved model predictions.")
-            return
-        selected_predictions = (
-            selected_predictions.set_index("Model").loc[MODEL_ORDER].reset_index()
+        frame = ensure_finite_predictor_frame(
+            matching.iloc[[0]][PREDICTORS].copy()
         )
-        current_price = float(selected_predictions.iloc[0]["Current_Price"])
-        results = pd.DataFrame({
-            "Model": selected_predictions["Model"],
-            "Current Price": selected_predictions["Current_Price"].astype(float),
-            "Predicted Next Return": selected_predictions["Predicted_Next_Return"].astype(float),
-            "Predicted Return Percentage": (
-                100.0 * selected_predictions["Predicted_Next_Return"].astype(float)
-            ),
-            "Predicted Price Change": (
-                selected_predictions["Predicted_Next_Price"].astype(float) - current_price
-            ),
-            "Predicted Next Price": selected_predictions["Predicted_Next_Price"].astype(float),
-            "Direction": [
-                direction_from_return(float(value))
-                for value in selected_predictions["Predicted_Next_Return"]
-            ],
-        })
+        results = predict_all_models(bundle["models"], frame)
+        current_price = float(frame.iloc[0]["Current_Price"])
         best_model = str(
             bundle["ranking"].sort_values("Overall_Rank").iloc[0]["Model"]
         )
@@ -682,21 +702,32 @@ def render_existing_date_prediction(bundle: dict[str, Any]) -> None:
             results,
             current_price,
             best_model,
-            f"Leakage-safe saved prediction for Origin Date {selected_date:%Y-%m-%d}.",
+            f"Final-deployment replay for Origin Date {selected_date:%Y-%m-%d}.",
         )
 
         with st.expander("Reveal the historical outcome", expanded=False):
-            outcome = selected_predictions.iloc[0]
+            selected_history = historical.loc[
+                historical["_Origin_Date"].eq(selected_date)
+            ].copy()
+            if selected_history.empty:
+                st.info("No saved historical outcome is available for this date.")
+                return
+            outcome = selected_history.iloc[0]
             st.write(f"**Target Date:** {pd.to_datetime(outcome['Target_Date']).date()}")
             st.write(f"**Actual Next Return:** {float(outcome['Actual_Next_Return']):+.6%}")
             st.write(f"**Actual Next Price:** {float(outcome['Actual_Next_Price']):,.2f}")
+            st.warning(
+                "This final deployment model was fitted after the Evaluation exercise. This replay "
+                "and its revealed outcome must not be reported as leakage-safe test performance."
+            )
 
 
 def render_prediction_workspace(bundle: dict[str, Any]) -> None:
     st.header("H1 Prediction")
     st.write(
-        "Choose one of two input modes on this page. Both modes produce four model predictions, "
-        "while the main result card highlights the frozen rank-1 model."
+        "Choose one of two input modes on this page. Both modes call the same four final deployment "
+        "models, while the main result card highlights the frozen rank-1 model. Historical "
+        "walk-forward evidence remains separate in the comparison section below."
     )
     existing_tab, manual_tab = st.tabs([
         "Mode 1 · Select Existing Date",
